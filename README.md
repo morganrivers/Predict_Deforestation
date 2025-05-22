@@ -71,7 +71,7 @@ drivers <- c(
   "pop_rural",     # Rural population
   "ag_fish_forest_cap_formation",  # Capital formation in agriculture/forestry/fishing
   "ag_fish_forest_consumption",    # Consumption in agriculture/forestry/fishing
-  "gdp"            # Gross Domestic Product
+  "gdp_percap"            # Gross Domestic Product (per capita)
 )
 ```
 

@@ -53,6 +53,7 @@ dfi <- dfi %>%
 drivers <- c(
   "year",
   "pop_f",
+  #"pop_total"
   "pop_m",
   "pop_rural",
   #"hdd", "cdd",
@@ -60,8 +61,9 @@ drivers <- c(
   #"fixed_cap_formation",
   "ag_fish_forest_cap_formation",
   "ag_fish_forest_consumption",
-  "gdp",
-  "lgdp_sq"
+  "gdp_percap"
+  #"gdp"
+  #"lgdp_sq"
   #"lland_area"
 )
 
