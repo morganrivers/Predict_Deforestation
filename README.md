@@ -46,7 +46,7 @@ The project combines data from multiple sources:
 
 - **Analysis Scripts**:
   - `predict_forest_emissions.Rmd`: Main analysis notebook
-  - `tune_RF_parameters_script.Rmd`: Hyperparameter tuning for Random Forest model
+  - `tune_RF_parameters_script.Rmd`: Hyperparameter tuning for Random Forest model -- not currently in use
 
 - **Data Directory**:
   - Raw data files from FAOSTAT and other sources
@@ -57,7 +57,7 @@ The project combines data from multiple sources:
 
 1. **Random Forest**: Non-parametric ensemble method suitable for complex relationships
 2. **Generalized Linear Model (GLM)**: Linear modeling approach
-3. **Country Similarity Random Forest (CSRF)**: Custom approach that weights countries by similarity
+3. **Country Similarity Random Forest (CSRF)**: Custom approach that weights countries by similarity. See: `https://www.jstor.org/stable/24737234`
 
 ## Variables
 
@@ -78,10 +78,8 @@ drivers <- c(
 ## Key Findings
 
 - Random Forest and CSRF models outperform GLM and baseline predictions
-- Country similarity matters - models perform better when trained on similar countries
 - Data quality issues exist in the FAOSTAT Tier 1 deforestation records
-- Countries with small populations (below 10,000) can skew results and are excluded
-- Predictions are reasonably accurate for most focus countries but have varying performance
+- Prediction quality is currently highly variable country-by-country. Some countries fit well, others don't. This may relate to Tier 1 data quality issues.
 
 ## Setup and Usage
 
@@ -115,28 +113,11 @@ drivers <- c(
 
 ### Running the Analysis
 
-1. Open the main analysis notebook:
-   ```bash
-   R -e "rmarkdown::render('predict_forest_emissions.Rmd')"
-   ```
-
-2. For hyperparameter tuning of the Random Forest model:
-   ```bash
-   R -e "rmarkdown::render('tune_RF_parameters_script.Rmd')"
-   ```
+Open the main analysis notebook in rstudio: `predict_forest_emissions.Rmd' and run it. You will see the results for a selection of countries.
 
 ## Future Work
 
-- Improve data quality by incorporating additional forest emissions datasets
+- Improve data quality by incorporating more accurate forest emissions datasets
 - Add climate variables (precipitation, NPP) that may improve predictions
 - Explore sub-national predictions (state/province level)
 - Implement more sophisticated weighting schemes for country similarity
-- Test additional machine learning models
-
-## License
-
-This project is for research purposes. All data sources should be credited according to their respective licenses.
-
-## Acknowledgments
-
-This work is part of research into incentive-preserving baseline prediction methods for Jurisdictional Reward Funds, which aim to reduce emissions from deforestation and forest degradation.
