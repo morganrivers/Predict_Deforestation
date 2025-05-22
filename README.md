@@ -57,7 +57,7 @@ The project combines data from multiple sources:
 
 1. **Random Forest**: Non-parametric ensemble method suitable for complex relationships
 2. **Generalized Linear Model (GLM)**: Linear modeling approach
-3. **Country Similarity Random Forest (CSRF)**: Custom approach that weights countries by similarity. See: `https://www.jstor.org/stable/24737234`
+3. **Case-Specific Random Forest (CSRF)**: Custom approach that weights countries by similarity. See: `https://www.jstor.org/stable/24737234`
 
 ## Variables
 
