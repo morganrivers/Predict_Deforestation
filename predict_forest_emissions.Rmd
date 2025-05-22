@@ -1,0 +1,257 @@
+```{r}
+# ---- Setup -------------------------------------------------------------------
+library(tidyverse)    # loads dplyr, ggplot2, etc.
+library(randomForest)
+library(janitor)
+library(pdp)
+library(ranger)
+
+set.seed(1234)  # reproducibility
+
+# Project folder 
+setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+
+options(stringsAsFactors = FALSE)
+metrics_one_vec <- function(pred, truth) {
+  tibble(
+    R2   = 1 - sum((truth - pred)^2) / sum((truth - mean(truth))^2),
+    NSE  = 1 - sum((pred - truth)^2) / sum((truth - mean(truth))^2),
+    RMSE = sqrt(mean((truth - pred)^2)),
+    MAE  = mean(abs(truth - pred))
+  )
+}
+
+get_country_metrics <- function(preds_tbl) {
+  preds_tbl %>%
+    group_by(country) %>%
+    summarise(metrics_one_vec(pred_emis, actual_emis))
+}
+
+summarise_overall <- function(country_metrics) {
+  country_metrics %>%
+    summarise(
+      RMSE_overall = sqrt(mean(RMSE^2)),
+      RMSE_median = median(RMSE),
+      MAE_mean     = mean(MAE),
+      R2_mean      = mean(R2),
+      RMSE_sd      = sd(RMSE),
+      MAE_sd       = sd(MAE)
+    )
+}
+
+# Master panel -----------------------------------------------------------------
+dfi <- readRDS("data/all_variables.RDS")
+
+# emissions grouped by country can't be zero for all years - that is not good for training
+dfi <- dfi %>%
+  filter(!is.na(net_emissions_removal_co2)) %>%
+  group_by(country) %>%
+  filter(any(net_emissions_removal_co2 != 0)) %>%
+  ungroup()
+
+# ---- Helpers -----------------------------------------------------------------
+drivers <- c(
+  "year",
+  "pop_f",
+  "pop_m",
+  "pop_rural",
+  #"hdd", "cdd",
+  #"pop_urban",
+  #"fixed_cap_formation",
+  "ag_fish_forest_cap_formation",
+  "ag_fish_forest_consumption",
+  "gdp",
+  "lgdp_sq"
+  #"lland_area"
+)
+
+target <- "net_emissions_removal_co2"
+
+#target <- "forestland_area"
+
+metric_fun <- function(pred, truth) {
+  ss_res <- sum((truth - pred)^2, na.rm = TRUE)
+  ss_tot <- sum((truth - mean(truth, na.rm = TRUE))^2, na.rm = TRUE)
+  tibble(
+    R2   = 1 - ss_res/ss_tot,
+    RMSE = sqrt(mean((truth - pred)^2, na.rm = TRUE))
+  )
+}
+
+focus_countries <- c("Brazil", "Cote d'Ivoire",
+                     "Nicaragua", "Niger", "Ethiopia", "Kenya", "Uganda", "Tanzania", "Mozambique", "Ghana", "Nigeria", "Cambodia", "Myanmar", "Nepal", "Colombia", "Peru")
+
+# Create output directories ----------------------------------------------------
+dir.create("outputs", showWarnings = FALSE)
+dir.create("outputs/plots", showWarnings = FALSE)
+
+# ---- Main loop ---------------------------------------------------------------
+all_metrics <- map_dfr(focus_countries, function(ctry) {
+
+  message("Processing ", ctry, " ...")
+
+  # --- Train / Test split -----------------------------------------------------
+  train_panel <- dfi %>%
+    filter(country != ctry, year <= 2015, pop_total >= 1e4)
+
+  test_panel  <- dfi %>%
+    filter(country == ctry, year <= 2015, pop_total >= 1e4)
+
+  # ---- Baseline: pop-weighted global per-capita average for each year ----------
+  baseline_yearly <- train_panel %>%                               # training data only
+    group_by(year) %>% 
+    summarise(
+      base_pc = sum(net_emissions_removal_co2, na.rm = TRUE) /     # tonnes CO₂ per person
+                sum(pop_total, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  preds_baseline <- test_panel %>% 
+    left_join(baseline_yearly, by = "year") %>% 
+    mutate(
+      pred_emis = base_pc * pop_total,   # back to total tonnes for the test country
+      model     = "Baseline"
+    ) %>% 
+    select(country, year, model, pred_emis)
+  
+  
+    # let's try out this similarity weighting scheme...
+    if (nrow(test_panel) == 0) {
+      warning("No test data for ", ctry, ". Skipping ...")
+      return(tibble())
+    }
+  
+    formula_str <- paste(target, "~", paste(drivers, collapse = " + "))
+
+    preds_csrf <- csrf(
+      formula       = as.formula(formula_str),
+      training_data = train_panel,
+      test_data     = test_panel,
+      params1       = list(num.trees = 400),  # proximity forest
+      params2       = list(num.trees = 400)                        # weighted forest
+    )
+
+    # "preds_csrf" is a numeric vector: one prediction per row of test_panel.
+    preds_csrf_df <- test_panel %>%
+      mutate(pred_emis = preds_csrf,
+             model     = "CSRF") %>%
+      select(country, year, model, pred_emis)
+
+    
+  # Random‑Forest --------------------------------------------------------------
+  #rf_panel <- randomForest(
+  #  formula = as.formula(paste(target, "~", paste(drivers, collapse = " + "))),
+  #  data    = na.omit(train_panel[, c(target, drivers)]),
+  #  ntree   = 800,
+  #  mtry = 6,
+  #  nodesize = 2,
+  #  samp_frac  = 0.632,
+  #  importance = TRUE
+  #)
+  
+  
+
+        
+  # ---- Print variable importance (top 10, sorted) ----
+  #randomForest::varImpPlot(rf_panel,
+  #                       sort=FALSE,
+  #                       main="Variable Importance Plot")
+#})
+#```
+
+
+#```{r}
+
+
+  # GLM ------------------------------------------------------------------------
+  glm_panel <- glm(
+    formula = as.formula(paste(target, "~", paste(drivers, collapse = " + "))),
+    data    = na.omit(train_panel[, c(target, drivers)]),
+    family  = gaussian()
+  )
+
+  # Predictions ----------------------------------------------------------------
+  #preds_rf <- test_panel %>%
+  #  mutate(pred_emis = predict(rf_panel, newdata = .),
+   #        model = "RF")
+
+  preds_glm <- test_panel %>%
+    mutate(pred_emis = predict(glm_panel, newdata = .),
+           model = "GLM")
+
+    # Bind all predictions
+    preds <- bind_rows(preds_glm, preds_baseline, preds_csrf_df)
+    
+    emissions <- test_panel %>%
+      select(country, year, forest_net_emis = !!sym("net_emissions_removal_co2"))
+    
+    unfccc <- test_panel %>%
+      select(country, year, unfccc_net_emis = !!sym("unfccc_emissions"))
+     
+    actual <- test_panel %>%
+      select(country, year, actual_emis = !!sym(target))
+    
+    compare <- preds %>%
+      left_join(actual, by = c("country", "year")) %>%
+      left_join(emissions, by = c("country", "year")) %>%
+      left_join(unfccc, by = c("country", "year")) %>%
+      group_by(model) %>%
+      mutate(residual = actual_emis - pred_emis) %>%
+      ungroup()
+    
+    
+    # ---- Plots -----------------------------------------------------------------
+    p <- ggplot(compare, aes(year)) +
+      geom_line(aes(y = pred_emis, colour = model), linewidth = .9) +
+      geom_line(aes(y = actual_emis, colour = "Forest Area"), linewidth = .9) +
+      geom_line(aes(y = forest_net_emis, colour = "Forest Net Emissions"), linewidth = .9) +
+    #    labs(title = paste(ctry, "CO₂ Emissions: RF vs GLM vs Actual"),
+      labs(title = paste(ctry, "CO₂ Emissions: RF  vs Actual"),
+           y = "Tonnes CO₂", colour = "Legend") +
+      theme_minimal()
+     
+    # Add UNFCCC line only if it has non-NA data
+    if (any(!is.na(compare$unfccc_net_emis))) {
+      print("ONE WAS NOT NA!")
+      p <- p + geom_line(aes(y = unfccc_net_emis, colour = "UNFCCC Forest Emissions"), linewidth = .9)
+    }
+    print(p)
+
+
+  # ---- Metrics ---------------------------------------------------------------
+  metrics_rf  <- metric_fun(
+    compare %>% filter(model == "CSRF")  %>% pull(pred_emis),
+    compare %>% filter(model == "CSRF")  %>% pull(actual_emis)
+  )
+
+  metrics_glm <- metric_fun(
+    compare %>% filter(model == "GLM") %>% pull(pred_emis),
+    compare %>% filter(model == "GLM") %>% pull(actual_emis)
+  )
+
+  bind_rows(
+     metrics_rf  %>% mutate(model = "CSRF"),
+    metrics_glm %>% mutate(model = "GLM")
+  ) %>%
+    mutate(country = ctry, .before = 1)
+  
+  return(compare)
+})
+
+# ---- Save & Print Metrics ----------------------------------------------------
+print(all_metrics)
+
+
+preds_csrf_tbl <- all_metrics %>% filter(model == "CSRF")
+
+# Calculate per-country metrics
+metrics_by_country <- get_country_metrics(preds_csrf_tbl)
+
+# Print the per-country results
+print(metrics_by_country)
+
+# Get overall and variability stats for these countries
+overall_csrf <- summarise_overall(metrics_by_country)
+print(overall_csrf)
+
+```

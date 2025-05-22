@@ -1,0 +1,120 @@
+```{r}
+################################################################################
+#  Fine-tuning Random-Forest CO₂-emission model
+#  – sweeps RF hyper-parameters and minimum-population filters
+#
+#  Metric: weighted RMSE across focus countries
+#  Weights  w_i = sqrt(mean(pop_total_i))   (larger countries count more)
+################################################################################
+
+library(tidyverse)
+library(randomForest)
+library(janitor)
+
+set.seed(1234)   # reproducibility
+
+# ── Folders ────────────────────────────────────────────────────────────────────
+setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+dir.create("outputs", showWarnings = FALSE)
+
+# ── Data & helpers ─────────────────────────────────────────────────────────────
+dfi <- readRDS("data/all_variables.RDS") %>%
+  filter(!is.na(net_emissions_removal_co2)) %>%
+  group_by(country) %>%
+  filter(any(net_emissions_removal_co2 != 0)) %>%
+  ungroup()
+
+drivers <- c("year", "pop_f", "pop_m", "pop_rural",
+             "ag_fish_forest_cap_formation",
+             "ag_fish_forest_consumption",
+             "pop_total")
+
+focus_countries <- c("Brazil", "Cote d'Ivoire", "Nicaragua",
+                     "Paraguay", "Niger", "Indonesia", "Ecuador")
+
+metric_fun <- function(pred, truth) {
+  sqrt(mean((truth - pred)^2, na.rm = TRUE))
+}
+
+# ── Hyper-parameter grid  (4 combos × 3 pop thresholds = 12 runs) ─────────────
+param_grid <- tribble(
+  ~ntree, ~mtry, ~nodesize, ~samp_frac,
+     300,     2,        5,       0.632,
+     500,     4,        5,       0.632,
+     800,     6,        2,       0.632,
+     500,     3,       10,       0.500
+)
+
+pop_cutoffs <- c(1e5, 1e6, 1e7)
+
+# ── Main tuning loop ───────────────────────────────────────────────────────────
+results <- list()
+
+for (pc in pop_cutoffs) {
+  message("\n########  pop_total ≥ ", pc, "  ########")
+
+  for (i in seq_len(nrow(param_grid))) {
+
+    pars <- param_grid[i, ]
+    combo_name <- glue::glue("pc_{pc/1e3}k | ntree={pars$ntree}, mtry={pars$mtry}, ",
+                             "nodesize={pars$nodesize}, samp={pars$samp_frac}")
+
+    message("Running ", combo_name, " …")
+
+    country_metrics <- map_dfr(focus_countries, function(ctry) {
+
+      train_panel <- dfi %>%
+        filter(country != ctry, year <= 2015, pop_total >= pc)
+
+      test_panel  <- dfi %>%
+        filter(country == ctry, year <= 2015, pop_total >= pc)
+
+      if (nrow(test_panel) == 0) {
+        warning("No test data for ", ctry, " at cutoff ", pc)
+        return(tibble())
+      }
+
+      rf_panel <- randomForest(
+        formula   = net_emissions_removal_co2 ~ .,
+        data      = na.omit(train_panel[, c("net_emissions_removal_co2", drivers)]),
+        ntree     = pars$ntree,
+        mtry      = pars$mtry,
+        nodesize  = pars$nodesize,
+        sampsize  = ceiling(nrow(train_panel) * pars$samp_frac),
+        importance = FALSE
+      )
+
+      test_panel <- test_panel %>%
+        mutate(pred_emis = predict(rf_panel, newdata = .))
+
+      tibble(
+        country     = ctry,
+        RMSE        = metric_fun(test_panel$pred_emis,
+                                 test_panel$net_emissions_removal_co2),
+        weight      = sqrt(mean(test_panel$pop_total, na.rm = TRUE))
+      )
+    })
+
+    wt_avg_rmse <- with(country_metrics,
+                        sum(RMSE * weight) / sum(weight))
+
+    results[[length(results) + 1]] <- tibble(
+      pop_cutoff = pc,
+      ntree      = pars$ntree,
+      mtry       = pars$mtry,
+      nodesize   = pars$nodesize,
+      samp_frac  = pars$samp_frac,
+      weighted_RMSE = wt_avg_rmse
+    )
+  }
+}
+
+results_tbl <- bind_rows(results) %>% arrange(weighted_RMSE)
+
+# ── Output ─────────────────────────────────────────────────────────────────────
+print(results_tbl, width = Inf)
+
+best <- slice_head(results_tbl, n = 1)
+cat("\nBest setting ↓\n")
+print(best)
+```
