@@ -7,7 +7,7 @@ library(tidyr)
 library(janitor)
 
 # Set working directory to the project folder
-setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+setwd("/home/dmrivers/Code/Predict_Deforestation")
 
 # Function to read and process FAOSTAT data
 process_faostat <- function(file_path) {

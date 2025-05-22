@@ -14,7 +14,7 @@ library(janitor)
 set.seed(1234)   # reproducibility
 
 # ── Folders ────────────────────────────────────────────────────────────────────
-setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+setwd("/home/dmrivers/Code/Predict_Deforestation")
 dir.create("outputs", showWarnings = FALSE)
 
 # ── Data & helpers ─────────────────────────────────────────────────────────────

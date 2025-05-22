@@ -12,7 +12,7 @@ if(length(new_packages)) {
 }
 
 # Set working directory to the project folder
-setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+setwd("/home/dmrivers/Code/Predict_Deforestation")
 
 # Step 1: Process temperature data
 cat("\nStep 1: Processing temperature data...\n")

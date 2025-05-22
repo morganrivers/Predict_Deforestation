@@ -6,7 +6,7 @@ library(tidyr)
 library(readr)
 
 # Set working directory to the project folder
-setwd("/home/dmrivers/Code/lennart_predicting_forest_emissions")
+setwd("/home/dmrivers/Code/Predict_Deforestation")
 
 # Read the temperature data
 temp_data <- read_csv("data/monthly-average-surface-temperatures-by-year.csv", show_col_types = FALSE)

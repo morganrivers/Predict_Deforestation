@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
 # ---------------------------------------------------------------------------
 # 0 . Paths
 # ---------------------------------------------------------------------------
-root <- "/home/dmrivers/Code/lennart_predicting_forest_emissions"  # project root
+root <- "/home/dmrivers/Code/Predict_Deforestation"  # project root
 setwd(root)
 raw   <- file.path(root, "data")
 # ---------------------------------------------------------------------------
@@ -170,6 +170,7 @@ combined_data <- combined_data %>%
     lfixed_cap_formation_sq  = ifelse(is.na(lgdp), NA, lfixed_cap_formation^2),
     lgdp_sq = ifelse(is.na(lgdp), NA, lgdp^2),
     gdp_sq = ifelse(is.na(gdp), NA, gdp^2),
+    gdp_percap = gdp / pop_total,
     lland_area  = ifelse(is.na(land_area)        | land_area        <= 0, NA, log(land_area)),
     log_net_emissions_removal_co2 = case_when(
       is.na(net_emissions_removal_co2)        ~ NA_real_,
@@ -247,6 +248,7 @@ combined_data <- combined_data %>%
     lfixed_cap_formation_sq  = ifelse(is.na(lgdp), NA, lfixed_cap_formation^2),
     lgdp_sq = ifelse(is.na(lgdp), NA, lgdp^2),
     gdp_sq = ifelse(is.na(gdp), NA, gdp^2),
+    gdp_percap = gdp / pop_total,
     lland_area  = ifelse(is.na(land_area)        | land_area        <= 0, NA, log(land_area)),
     log_net_emissions_removal_co2 = case_when(
       is.na(net_emissions_removal_co2)        ~ NA_real_,

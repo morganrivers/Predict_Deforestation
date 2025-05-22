@@ -102,6 +102,8 @@ drivers <- c(
 
 ### Data Preparation
 
+Bug warning: Unfortunately, you need to search within the files for "Predict_Deforestation", and change from my computer's directory to your own (Hopefully will be fixed in future).
+
 1. Run the data preparation pipeline:
    ```bash
    Rscript prepare_all_data.R
