@@ -80,6 +80,8 @@ drivers <- c(
 - Random Forest and CSRF models outperform GLM and baseline predictions
 - Data quality issues exist in the FAOSTAT Tier 1 deforestation records
 - Prediction quality is currently highly variable country-by-country. Some countries fit well, others don't. This may relate to Tier 1 data quality issues.
+- You can inspect the results in this public google document:
+`https://docs.google.com/document/d/1zLgyCeKdBxyoO3fVo4y1QxJPJJJ8rKXUvJRlwY7VNRY/edit?tab=t.0`
 
 ## Setup and Usage
 
@@ -121,3 +123,4 @@ Open the main analysis notebook in rstudio: `predict_forest_emissions.Rmd' and r
 - Add climate variables (precipitation, NPP) that may improve predictions
 - Explore sub-national predictions (state/province level)
 - Implement more sophisticated weighting schemes for country similarity
+
