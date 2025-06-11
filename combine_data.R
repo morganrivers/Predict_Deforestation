@@ -82,6 +82,7 @@ ag_cap_data     <- read_proc("ag_cap")
 forestland_emissions_data <- read_proc("forestland_emissions")
 forestland_area_data <- read_proc("forestland_area")
 land_area_data <- read_proc("land_area")
+all_prices_data <- read_proc("all_prices")
 unfccc_emissions_data <- read_proc("unfccc_emissions")
 
 # ---------------------------------------------------------------------------
@@ -97,8 +98,9 @@ datasets <- list(
   ag_cap     = ag_cap_data     %>% standardise_year(),
   co2_conv   = forestland_emissions_data   %>% standardise_year(),
   forest_area   = forestland_area_data   %>% standardise_year(),
-  unfccc_emissions   = unfccc_emissions_data   %>% standardise_year(),
-  land_area   = land_area_data   %>% standardise_year()
+  land_area   = land_area_data   %>% standardise_year(),
+  all_prices   = all_prices_data   %>% standardise_year(),
+  unfccc_emissions   = unfccc_emissions_data   %>% standardise_year()
 )
 
 # ---------------------------------------------------------------------------

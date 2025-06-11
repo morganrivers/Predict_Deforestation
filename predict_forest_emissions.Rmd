@@ -31,8 +31,8 @@ summarise_overall <- function(country_metrics) {
   country_metrics %>%
     summarise(
       RMSE_overall = sqrt(mean(RMSE^2)),
-      RMSE_mean = mean(RMSE),
       RMSE_median = median(RMSE),
+      RMSE_mean = mean(RMSE),
       MAE_mean     = mean(MAE),
       R2_mean      = mean(R2),
       RMSE_sd      = sd(RMSE),
@@ -47,25 +47,35 @@ dfi <- readRDS("data/all_variables.RDS")
 dfi <- dfi %>%
   filter(!is.na(net_emissions_removal_co2)) %>%
   group_by(country) %>%
+  filter(year >= 1991) %>%
   filter(any(net_emissions_removal_co2 != 0)) %>%
   ungroup()
-
 # ---- Helpers -----------------------------------------------------------------
+# drivers <- c(
+#   "year",
+#   "pop_f",
+#   #"pop_total"
+#   "pop_m",
+#   "pop_rural",
+#   #"hdd", "cdd",
+#   #"pop_urban",
+#   #"fixed_cap_formation",
+#   "ag_fish_forest_cap_formation",
+#   #"ag_fish_forest_consumption",
+#   "gdp_percap"
+#   #"gdp"
+#   #"lgdp_sq"
+#   #"lland_area"
+# )
 drivers <- c(
   "year",
   "pop_f",
-  #"pop_total"
   "pop_m",
   "pop_rural",
-  #"hdd", "cdd",
-  #"pop_urban",
-  #"fixed_cap_formation",
-  "ag_fish_forest_cap_formation",
-  "ag_fish_forest_consumption",
+  "pop_total",
+  #"ag_fish_forest_cap_formation",
+  "lcattle_meat_pr_1y",
   "gdp_percap"
-  #"gdp"
-  #"lgdp_sq"
-  #"lland_area"
 )
 
 target <- "net_emissions_removal_co2"
@@ -81,8 +91,23 @@ metric_fun <- function(pred, truth) {
   )
 }
 
-focus_countries <- c("Brazil", "Cote d'Ivoire",
-                     "Nicaragua", "Niger", "Ethiopia", "Kenya", "Uganda", "Tanzania", "Mozambique", "Ghana", "Nigeria", "Cambodia", "Myanmar", "Nepal", "Colombia", "Peru")
+focus_countries <- c(
+  "Brazil",
+  "Cote d'Ivoire",
+  "Nicaragua",
+  "Niger",
+  "Ethiopia",
+  "Kenya",
+  "Uganda",
+  "Tanzania",
+  "Mozambique",
+  "Ghana",
+  "Nigeria",
+  "Cambodia",
+  "Myanmar",
+  "Nepal",
+  "Colombia",
+  "Peru")
 
 # Create output directories ----------------------------------------------------
 dir.create("outputs", showWarnings = FALSE)
@@ -95,10 +120,10 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
 
   # --- Train / Test split -----------------------------------------------------
   train_panel <- dfi %>%
-    filter(country != ctry, year <= 2015, pop_total >= 1e4)
+    filter(country != ctry,year >= 1991 ,year <= 2015, pop_total >= 1e4)
 
   test_panel  <- dfi %>%
-    filter(country == ctry, year <= 2015, pop_total >= 1e4)
+    filter(country == ctry,year >= 1991, year <= 2015, pop_total >= 1e4)
 
   # ---- Baseline: pop-weighted global per-capita average for each year ----------
   baseline_yearly <- train_panel %>%                               # training data only
@@ -124,46 +149,72 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
       return(tibble())
     }
   
-    # formula_str <- paste(target, "~", paste(drivers, collapse = " + "))
-
-    # preds_csrf <- csrf(
-    #   formula       = as.formula(formula_str),
-    #   training_data = train_panel,
-    #   test_data     = test_panel,
-    #   params1       = list(num.trees = 400),  # proximity forest
-    #   params2       = list(num.trees = 400)                        # weighted forest
-    # )
-    # 
-    # # "preds_csrf" is a numeric vector: one prediction per row of test_panel.
-    # preds_csrf_df <- test_panel %>%
-    #   mutate(pred_emis = preds_csrf,
-    #          model     = "CSRF") %>%
-    #   select(country, year, model, pred_emis)
-
+    formula_str <- paste(target, "~", paste(drivers, collapse = " + "))
+# 
+#     preds_csrf <- csrf(
+#       formula       = as.formula(formula_str),
+#       training_data = train_panel,
+#       test_data     = test_panel,
+#       params1       = list(num.trees = 800),  # proximity forest
+#       params2       = list(num.trees = 800)                        # weighted forest
+#     )
     
-  # Random‑Forest --------------------------------------------------------------
-  rf_panel <- randomForest(
-   formula = as.formula(paste(target, "~", paste(drivers, collapse = " + "))),
-   data    = na.omit(train_panel[, c(target, drivers)]),
-   ntree   = 800,
-   mtry = 6,
-   nodesize = 2,
-   samp_frac  = 0.632,
-   importance = TRUE
+  # looking at grid results, nothing seems to clearly matter except mtry
+  preds_csrf <- csrf(
+    formula       = as.formula(formula_str),
+    training_data = train_panel,
+    test_data     = test_panel,
+    params1 = list(
+      num.trees       = 1200,
+      mtry            = 3, # 2 is likely better.
+      min.node.size   = 2,
+      max.depth       = 20,
+      sample.fraction = 0.632
+    ),
+    params2 = list(                        # identical weights-stage forest
+      num.trees       = 1200,
+      mtry            = 3,  # 2 is likely better.
+      min.node.size   = 2,
+      max.depth       = 20,
+      sample.fraction = 0.632
+    )
   )
 
 
 
+    # "preds_csrf" is a numeric vector: one prediction per row of test_panel.
+    preds_csrf_df <- test_panel %>%
+      mutate(pred_emis = preds_csrf,
+             model     = "CSRF") %>%
+      select(country, year, model, pred_emis)
 
+    
+  # Random‑Forest --------------------------------------------------------------
+  #rf_panel <- randomForest(
+  #  formula = as.formula(paste(target, "~", paste(drivers, collapse = " + "))),
+  #  data    = na.omit(train_panel[, c(target, drivers)]),
+  #  ntree   = 800,
+  #  mtry = 6,
+  #  nodesize = 2,
+  #  samp_frac  = 0.632,
+  #  importance = TRUE
+  #)
+  
+  
+
+        
   # ---- Print variable importance (top 10, sorted) ----
-  randomForest::varImpPlot(rf_panel,
-                        sort=FALSE,
-                        main="Variable Importance Plot")
+  #randomForest::varImpPlot(rf_panel,
+  #                       sort=FALSE,
+  #                       main="Variable Importance Plot")
 #})
-#```
+#
 
 
-#```{r}
+
+
+#
+
 
 
   # GLM ------------------------------------------------------------------------
@@ -174,16 +225,16 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
   )
 
   # Predictions ----------------------------------------------------------------
-  preds_rf <- test_panel %>%
-    mutate(pred_emis = predict(rf_panel, newdata = .),
-           model = "RF")
+  #preds_rf <- test_panel %>%
+  #  mutate(pred_emis = predict(rf_panel, newdata = .),
+   #        model = "RF")
 
   preds_glm <- test_panel %>%
     mutate(pred_emis = predict(glm_panel, newdata = .),
            model = "GLM")
 
     # Bind all predictions
-    preds <- bind_rows(preds_glm, preds_baseline, preds_rf) #preds_csrf_df)
+    preds <- bind_rows(preds_glm, preds_baseline, preds_csrf_df)
     
     emissions <- test_panel %>%
       select(country, year, forest_net_emis = !!sym("net_emissions_removal_co2"))
@@ -223,8 +274,8 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
 
   # ---- Metrics ---------------------------------------------------------------
   metrics_rf  <- metric_fun(
-    compare %>% filter(model == "RF")  %>% pull(pred_emis),
-    compare %>% filter(model == "RF")  %>% pull(actual_emis)
+    compare %>% filter(model == "CSRF")  %>% pull(pred_emis),
+    compare %>% filter(model == "CSRF")  %>% pull(actual_emis)
   )
 
   metrics_glm <- metric_fun(
@@ -233,7 +284,7 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
   )
 
   bind_rows(
-     metrics_rf  %>% mutate(model = "RF"),
+     metrics_rf  %>% mutate(model = "CSRF"),
     metrics_glm %>% mutate(model = "GLM")
   ) %>%
     mutate(country = ctry, .before = 1)
@@ -245,7 +296,7 @@ all_metrics <- map_dfr(focus_countries, function(ctry) {
 print(all_metrics)
 
 
-preds_csrf_tbl <- all_metrics %>% filter(model == "RF")
+preds_csrf_tbl <- all_metrics %>% filter(model == "CSRF")
 
 # Calculate per-country metrics
 metrics_by_country <- get_country_metrics(preds_csrf_tbl)

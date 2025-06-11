@@ -185,6 +185,78 @@ land_area_data <- process_faostat("data/FAOSTAT_data_en_5-21-2025_Area.csv") %>%
     land_area = value,
   )
 
+gdp_data <- process_faostat("data/FAOSTAT_data_en_5-20-2025_GDP_Cap_Formation.csv") %>%
+  # Select relevant columns
+  select(Area,"Area Code (M49)", Element, Item, Year, Value) %>%
+  # Filter for GDP and Capital Formation with specific element
+  filter(Element == "Value US$, 2015 prices") %>%
+  pivot_wider(
+    names_from = Item,
+    values_from = Value,
+    names_repair = "unique"
+  ) %>%
+  clean_names() %>%
+  rename(
+    country = area,
+    m49_code = area_code_m49,
+    year = year,
+    gdp = gross_domestic_product,
+    fixed_cap_formation = gross_fixed_capital_formation
+  ) %>%
+  select(-element)
+
+ag_price_data <- process_faostat("data/FAOSTAT_data_en_6-11-2025_Agricultural_Prices.csv") %>%
+  # Select relevant columns
+  select(Area,"Area Code (M49)", Element, Item, Year, Value) %>%
+  # Filter for GDP and Capital Formation with specific element
+  filter(Element == "Producer Price (USD/tonne)") %>%
+  pivot_wider(
+    names_from = Item,
+    values_from = Value,
+    names_repair = "unique"
+  ) %>%
+  clean_names() %>%
+  rename(
+    country = area,
+    m49_code = area_code_m49,
+    year = year,
+    cattle_meat = meat_of_cattle_with_the_bone_fresh_or_chilled,
+    soy = soya_beans,
+    milk = raw_milk_of_cattle,
+    sugar = sugar_cane,
+    palm = palm_oil,
+    coffee = coffee_green
+  ) %>%
+  mutate(across(c(cattle_meat, soy, milk, sugar, palm, coffee), log)) %>%
+  select(-element)
+
+
+# land_area_data <- process_faostat("data/FAOSTAT_data_en_6-11-2025_Wood_Prices_Quantities.csv") %>%
+#   # Select relevant columns
+#   select(Area,"Area Code (M49)", Element, Item, Year, Value) %>%
+#   # Filter for GDP and Capital Formation with specific element
+#   clean_names() %>%
+#   rename(
+#     country = area,
+#     m49_code = area_code_m49,
+#     year = year,
+#     land_area = value,
+#   )
+
+# land_area_data <- process_faostat("data/FAOSTAT_data_en_6-11-2025_Agricultural_Production.csv") %>%
+#   # Select relevant columns
+#   select(Area,"Area Code (M49)", Element, Item, Year, Value) %>%
+#   # Filter for GDP and Capital Formation with specific element
+#   clean_names() %>%
+#   rename(
+#     country = area,
+#     m49_code = area_code_m49,
+#     year = year,
+#     land_area = value,
+#   )
+
+
+
 # Save the processed data files
 write_csv(pop_data, "data/processed_population_data.csv")
 write_csv(gdp_data, "data/processed_gdp_data.csv")
@@ -194,5 +266,6 @@ write_csv(forestland_emissions, "data/processed_forestland_emissions_data.csv")
 write_csv(unfccc_emissions, "data/processed_unfccc_emissions_data.csv")
 write_csv(forestland_area, "data/processed_forestland_area_data.csv")
 write_csv(land_area_data, "data/processed_land_area_data.csv")
+write_csv(ag_price_data, "data/processed_ag_price_data.csv")
 
 cat("All FAOSTAT data processed and saved to data/ directory\n")
