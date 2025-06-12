@@ -4,7 +4,7 @@ A machine learning system to create incentive-preserving baseline predictions fo
 
 ## Project Overview
 
-This project implements a prediction model for forest-related CO2 emissions that can be used as part of a "Jurisdictional Reward Fund" system. The model predicts a country's expected deforestation rates based on characteristics that are not easily influenced by government policy, thus preserving incentives for good forest management.
+This project implements a prediction model for forest-related CO2 emissions that can be used as part of a jurisdictional reward fund system. The model predicts a country's expected deforestation rates based on characteristics that are not easily influenced by government policy, thus preserving incentives for good forest management.
 
 ### Objective
 
